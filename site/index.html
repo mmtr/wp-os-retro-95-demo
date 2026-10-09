@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WordPress OS Retro 95</title>
+<meta name="description" content="WordPress admin as a mid-nineties desktop: OpenStation with the Retro 95 theme, running entirely in your browser.">
+<meta property="og:title" content="Retro 95: WordPress, reimagined">
+<meta property="og:description" content="WordPress admin as a mid-nineties desktop: OpenStation with the Retro 95 theme, running entirely in your browser.">
+<meta property="og:image" content="https://raw.githubusercontent.com/mmtr/wp-os-retro-95/main/screenshots/desktop.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+html, body { margin: 0; height: 100%; overflow: hidden; }
+#wp { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; opacity: 0; transition: opacity 0.4s; }
+#wp.ready { opacity: 1; }
+.splash { position: fixed; inset: 0; display: grid; place-items: center; -webkit-font-smoothing: none; }
+.splash.gone { display: none; }
+.body p { margin: 0 0 6px; }
+.bar i { display: block; width: 0; height: 100%; animation: fill 14s steps( 34 ) forwards; }
+@keyframes fill { to { width: 96%; } }
+.links { display: flex; justify-content: space-between; }
+@font-face { font-family: "OS Retro Sans"; src: url(fonts/os-retro-sans.woff) format("woff"); }
+@font-face { font-family: "OS Retro Sans"; font-weight: 700; src: url(fonts/os-retro-sans-bold.woff) format("woff"); }
+html, body { background: #008080; }
+.splash { font: 11px "OS Retro Sans", Tahoma, sans-serif; color: #000; }
+.box { width: 340px; padding: 3px; background: #c0c0c0; box-shadow: inset -1px -1px #000, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #fff; }
+.title { padding: 3px 4px; background: #000080; color: #fff; font-weight: 700; }
+.body { padding: 14px 12px 10px; }
+.bar { height: 18px; margin: 12px 0 10px; padding: 2px; box-shadow: inset 1px 1px #808080, inset -1px -1px #fff; }
+.bar i { background: repeating-linear-gradient( 90deg, #000080 0 8px, transparent 8px 10px ); }
+a { color: #000080; }
+</style>
+</head>
+<body>
+<iframe id="wp" title="WordPress OS Retro 95"></iframe>
+<div class="splash" role="status">
+	<div class="box">
+		<div class="title"><span>WordPress OS Retro 95</span></div>
+		<div class="body">
+			<p>Starting WordPress in your browser.</p>
+			<p class="status">This takes a few seconds, and nothing is installed on your computer.</p>
+			<div class="bar"><i></i></div>
+			<p class="links"><a href="https://github.com/WordPress/openstation" target="_blank" rel="noopener">WordPress OpenStation</a><a href="https://github.com/mmtr/wp-os-retro-95" target="_blank" rel="noopener">Get Retro 95</a></p>
+		</div>
+	</div>
+</div>
+<script type="module">
+import { startPlaygroundWeb } from 'https://playground.wordpress.net/client/index.js';
+
+const iframe = document.getElementById( 'wp' );
+const splash = document.querySelector( '.splash' );
+const bytes = async ( url ) => new Uint8Array( await ( await fetch( url ) ).arrayBuffer() );
+
+try {
+	// Fetched here, from this site, and handed to Playground as literal
+	// files: Playground runs on another origin and could not fetch them.
+	const [ plugin, theme, setup ] = await Promise.all( [
+		bytes( 'openstation.zip' ),
+		bytes( 'theme.zip' ),
+		fetch( 'setup.php' ).then( ( r ) => r.text() ),
+	] );
+	const client = await startPlaygroundWeb( {
+		iframe,
+		remoteUrl: 'https://playground.wordpress.net/remote.html',
+		blueprint: {
+			preferredVersions: { php: '8.3', wp: 'latest' },
+			landingPage: '/wp-admin/admin.php?page=openstation',
+			login: true,
+			steps: [
+				{ step: 'installPlugin', pluginData: { resource: 'literal', name: 'openstation.zip', contents: plugin }, options: { activate: true } },
+				{ step: 'writeFile', path: '/tmp/theme.zip', data: { resource: 'literal', name: 'theme.zip', contents: theme } },
+				{ step: 'runPHP', code: setup },
+			],
+		},
+	} );
+	await client.isReady();
+	// The desktop paints a moment after the page loads.
+	setTimeout( () => {
+		iframe.classList.add( 'ready' );
+		setTimeout( () => splash.classList.add( 'gone' ), 400 );
+	}, 2500 );
+} catch ( error ) {
+	document.querySelector( '.status' ).textContent = 'The demo could not start: ' + error.message;
+	console.error( error );
+}
+</script>
+</body>
+</html>
